@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinkedIn Post Scraper</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 400px;
+        min-height: 500px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #333;
+      }
+
+      .container {
+        background: white;
+        margin: 0;
+        padding: 20px;
+        min-height: 500px;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin-bottom: 20px;
+        color: #0077b5;
+        text-align: center;
+      }
+
+      .section {
+        margin-bottom: 25px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+      }
+
+      .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #333;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #555;
+      }
+
+      input[type="text"],
+      input[type="email"],
+      input[type="password"],
+      input[type="number"],
+      select#timeRangeUnit {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        margin-bottom: 10px;
+      }
+
+      input[type="text"]:focus,
+      input[type="email"]:focus,
+      input[type="password"]:focus,
+      input[type="number"]:focus,
+      select#timeRangeUnit:focus {
+        outline: none;
+        border-color: #0077b5;
+        box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
+      }
+
+      .keywords-input {
+        margin-bottom: 10px;
+      }
+
+      .keyword-tag {
+        display: inline-block;
+        background: #0077b5;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        margin: 5px 5px 5px 0;
+      }
+
+      .keyword-tag .remove {
+        margin-left: 8px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      button {
+        width: 100%;
+        padding: 12px;
+        background: #0077b5;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.3s;
+        margin-bottom: 10px;
+      }
+
+      button:hover {
+        background: #005885;
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      button.secondary {
+        background: #6c757d;
+      }
+
+      button.secondary:hover {
+        background: #5a6268;
+      }
+
+      button.danger {
+        background: #dc3545;
+      }
+
+      button.danger:hover {
+        background: #c82333;
+      }
+
+      .status {
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        font-size: 13px;
+        text-align: center;
+      }
+
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .status.info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+      }
+
+      .stats {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px;
+        background: white;
+        border-radius: 6px;
+        margin-top: 10px;
+      }
+
+      .stat-item {
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 20px;
+        font-weight: bold;
+        color: #0077b5;
+      }
+
+      .stat-label {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+      }
+
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔍 LinkedIn Post Scraper</h1>
+
+      <div id="statusMessage" class="status hidden"></div>
+
+      <div class="section">
+        <div class="section-title">🔐 Login</div>
+        <label for="email">Email:</label>
+        <input type="email" id="email" placeholder="your@email.com" />
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" placeholder="Your password" />
+
+        <button id="loginBtn">Login to LinkedIn</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">⚙️ Scraping Configuration</div>
+
+        <label for="keywords"
+          >Keywords (type and press Enter, or comma-separated):</label
+        >
+        <input
+          type="text"
+          id="keywords"
+          placeholder="e.g., javascript, python, AI (press Enter to add)"
+        />
+        <div id="keywordTags"></div>
+        <small
+          style="color: #666; font-size: 12px; display: block; margin-top: 5px"
+        >
+          💡 Type keywords and press Enter, or separate multiple keywords with
+          commas
+        </small>
+
+        <label for="pollInterval">Polling Interval (seconds):</label>
+        <input
+          type="number"
+          id="pollInterval"
+          value="300"
+          min="10"
+          max="3600"
+        />
+        <small
+          style="color: #666; font-size: 12px; display: block; margin-top: 5px"
+        >
+          💡 Default: 300 seconds (5 minutes). Min: 10s, Max: 3600s (1 hour)
+        </small>
+
+        <label for="timeRange">Time Range:</label>
+        <div style="display: flex; gap: 10px; align-items: center">
+          <input
+            type="number"
+            id="timeRangeValue"
+            value="30"
+            min="1"
+            style="flex: 1"
+          />
+          <select
+            id="timeRangeUnit"
+            style="
+              flex: 1;
+              padding: 10px;
+              border: 1px solid #ddd;
+              border-radius: 6px;
+              font-size: 14px;
+            "
+          >
+            <option value="days">Days</option>
+            <option value="months">Months</option>
+            <option value="years">Years</option>
+          </select>
+        </div>
+        <small
+          style="
+            color: #666;
+            font-size: 12px;
+            display: block;
+            margin-top: 5px;
+            margin-bottom: 10px;
+          "
+        >
+          💡 Only search posts from the last N days/months/years. Default: 30
+          days
+        </small>
+
+        <button id="startPollingBtn">Start Polling</button>
+        <button id="stopPollingBtn" class="danger">Stop Polling</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">📊 Statistics</div>
+        <div class="stats">
+          <div class="stat-item">
+            <div class="stat-value" id="totalPosts">0</div>
+            <div class="stat-label">Total Posts</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="pollingStatus">Stopped</div>
+            <div class="stat-label">Status</div>
+          </div>
+        </div>
+        <button id="viewPostsBtn" class="secondary">View Scraped Posts</button>
+        <button id="clearPostsBtn" class="danger">Clear All Posts</button>
+      </div>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
