@@ -2,6 +2,7 @@ const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
 const loginBtn = document.getElementById('loginBtn');
 const keywordsInput = document.getElementById('keywords');
+const peopleInput = document.getElementById('people');
 const pollIntervalInput = document.getElementById('pollInterval');
 const timeRangeValueInput = document.getElementById('timeRangeValue');
 const timeRangeUnitSelect = document.getElementById('timeRangeUnit');
@@ -9,16 +10,19 @@ const startPollingBtn = document.getElementById('startPollingBtn');
 const stopPollingBtn = document.getElementById('stopPollingBtn');
 const statusMessage = document.getElementById('statusMessage');
 const keywordTags = document.getElementById('keywordTags');
+const peopleTags = document.getElementById('peopleTags');
 const totalPostsEl = document.getElementById('totalPosts');
 const pollingStatusEl = document.getElementById('pollingStatus');
 const viewPostsBtn = document.getElementById('viewPostsBtn');
 const clearPostsBtn = document.getElementById('clearPostsBtn');
 
 let keywords = [];
+let people = [];
 
 function loadSavedValues() {
     chrome.storage.local.get([
         'scrapingKeywords',
+        'scrapingPeople',
         'savedEmail',
         'savedPollInterval',
         'savedTimeRangeValue',
@@ -31,6 +35,14 @@ function loadSavedValues() {
         } else {
             keywords = [];
             updateKeywordTags();
+        }
+
+        if (result.scrapingPeople && Array.isArray(result.scrapingPeople)) {
+            people = result.scrapingPeople;
+            updatePeopleTags();
+        } else {
+            people = [];
+            updatePeopleTags();
         }
 
         if (result.savedEmail) {
@@ -54,6 +66,7 @@ function loadSavedValues() {
 function saveInputValues() {
     const valuesToSave = {
         scrapingKeywords: keywords,
+        scrapingPeople: people,
         savedEmail: emailInput.value.trim(),
         savedPollInterval: pollIntervalInput.value,
         savedTimeRangeValue: timeRangeValueInput.value,
@@ -96,6 +109,17 @@ keywordsInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
         addKeyword();
+    }
+});
+
+peopleInput.addEventListener('blur', () => {
+    addPeople();
+});
+
+peopleInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        addPeople();
     }
 });
 
@@ -163,6 +187,66 @@ function updateKeywordTags() {
             updateKeywordTags();
             saveInputValues();
             showStatus(`Removed keyword: ${removed}`, 'info');
+        });
+    });
+}
+
+function addPeople() {
+    const inputValue = peopleInput.value.trim();
+    if (!inputValue) {
+        return;
+    }
+
+    // Split by newlines or commas
+    const newPeople = inputValue
+        .split(/[\n,]+/)
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+
+    if (newPeople.length === 0) {
+        return;
+    }
+
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    newPeople.forEach(person => {
+        if (people.includes(person)) {
+            skippedCount++;
+        } else {
+            people.push(person);
+            addedCount++;
+        }
+    });
+
+    peopleInput.value = '';
+    updatePeopleTags();
+    saveInputValues();
+
+    if (addedCount > 0) {
+        showStatus(`✅ Added ${addedCount} person(s)${skippedCount > 0 ? ` (${skippedCount} already existed)` : ''}`, 'success');
+    } else if (skippedCount > 0) {
+        showStatus('All people already added', 'info');
+    }
+}
+
+function updatePeopleTags() {
+    if (people.length === 0) {
+        peopleTags.innerHTML = '<small style="color: #999; font-style: italic;">No people added yet</small>';
+        return;
+    }
+
+    peopleTags.innerHTML = people.map((person, index) =>
+        `<span class="keyword-tag">${person} <span class="remove" data-index="${index}" data-type="person">×</span></span>`
+    ).join('');
+
+    peopleTags.querySelectorAll('.remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            const removed = people.splice(index, 1)[0];
+            updatePeopleTags();
+            saveInputValues();
+            showStatus(`Removed person: ${removed}`, 'info');
         });
     });
 }
@@ -256,6 +340,7 @@ startPollingBtn.addEventListener('click', async () => {
         chrome.runtime.sendMessage({
             action: 'startPolling',
             keywords: keywords,
+            people: people || [],
             interval: interval,
             timeRange: {
                 value: timeRangeValue,

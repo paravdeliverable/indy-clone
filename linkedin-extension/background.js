@@ -14,7 +14,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === 'startPolling') {
-        startPolling(request.keywords, request.interval, request.timeRange);
+        startPolling(request.keywords, request.interval, request.timeRange, request.people);
         sendResponse({ success: true });
     }
 
@@ -47,9 +47,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 let currentPollingKeywords = [];
+let currentPollingPeople = [];
 let currentTimeRange = { value: 30, unit: 'days' };
 
-async function startPolling(keywords, intervalSeconds = 300, timeRange = null) {
+async function startPolling(keywords, intervalSeconds = 300, timeRange = null, people = []) {
     if (isPolling) {
         console.log('⚠️ Polling already in progress');
         return;
@@ -77,6 +78,7 @@ async function startPolling(keywords, intervalSeconds = 300, timeRange = null) {
 
     isPolling = true;
     currentPollingKeywords = keywords;
+    currentPollingPeople = people || [];
     if (timeRange) {
         currentTimeRange = timeRange;
     }
@@ -89,13 +91,16 @@ async function startPolling(keywords, intervalSeconds = 300, timeRange = null) {
         : `${intervalSeconds}s`;
 
     console.log(`🚀 Starting polling for keywords: ${keywords.join(', ')} every ${timeStr} (${intervalSeconds} seconds)`);
+    if (currentPollingPeople.length > 0) {
+        console.log(`👥 Checking ${currentPollingPeople.length} profile(s): ${currentPollingPeople.join(', ')}`);
+    }
     console.log(`📅 Time range: ${currentTimeRange.value} ${currentTimeRange.unit}`);
 
-    await pollForPosts(keywords, currentTimeRange);
+    await pollForPosts(keywords, currentTimeRange, currentPollingPeople);
 
     pollingInterval = setInterval(async () => {
         console.log(`⏰ Polling interval triggered. Using keywords:`, currentPollingKeywords);
-        await pollForPosts(currentPollingKeywords, currentTimeRange);
+        await pollForPosts(currentPollingKeywords, currentTimeRange, currentPollingPeople);
     }, intervalMs);
 }
 
@@ -107,11 +112,12 @@ function stopPolling() {
     }
     isPolling = false;
     currentPollingKeywords = [];
+    currentPollingPeople = [];
     pollRequestInProgress = false;
 }
 
 
-async function pollForPosts(keywords, timeRange = null) {
+async function pollForPosts(keywords, timeRange = null, people = []) {
     if (pollRequestInProgress) {
         console.log('⏸️ Poll request already in progress, skipping this request');
         return;
@@ -126,6 +132,9 @@ async function pollForPosts(keywords, timeRange = null) {
         const offset = storageData.pollingOffset || 0;
 
         console.log(`🔍 Polling for posts with keywords: ${keywords.join(', ')} (offset: ${offset})`);
+        if (people && people.length > 0) {
+            console.log(`👥 Checking profiles: ${people.join(', ')}`);
+        }
         if (timeRange) {
             console.log(`📅 Time range: ${timeRange.value} ${timeRange.unit}`);
         }
@@ -133,6 +142,9 @@ async function pollForPosts(keywords, timeRange = null) {
         const requestBody = { keywords, offset };
         if (timeRange) {
             requestBody.timeRange = timeRange;
+        }
+        if (people && people.length > 0) {
+            requestBody.people = people;
         }
 
         const response = await fetch(`${BACKEND_URL}/poll_posts`, {

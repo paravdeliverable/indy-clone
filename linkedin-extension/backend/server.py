@@ -390,9 +390,6 @@ def search_posts_by_keywords(
                                 )
                                 if parsed_relative_time:
                                     post_created_at = parsed_relative_time.isoformat()
-                                    print(
-                                        f"   📅 Parsed relative time '{relative_time_str}' -> {post_created_at}"
-                                    )
 
                             author_name = ""
                             author_urn = ""
@@ -722,6 +719,442 @@ def search_posts_by_keywords(
     return unique_posts, all_raw_results
 
 
+def search_profiles_and_get_posts(people, keywords, days_back=30, exclude_ids=None):
+    """
+    Search for profiles and get their posts filtered by keywords
+
+    Args:
+        people: List of people names or profile URLs
+        keywords: List of keywords to filter posts
+        days_back: Only fetch posts from the last N days (default: 30)
+        exclude_ids: Set of post IDs to exclude (already checked)
+
+    Returns:
+        tuple: (processed_posts, raw_search_results)
+    """
+    global linkedin_api
+
+    if exclude_ids is None:
+        exclude_ids = set()
+
+    if not linkedin_api:
+        raise Exception("Not logged in. Please login first.")
+
+    if not people or len(people) == 0:
+        return [], []
+
+    if not keywords or len(keywords) == 0:
+        raise Exception("Keywords are required")
+
+    all_posts = []
+    all_raw_results = []
+
+    print(
+        f"👥 Searching for {len(people)} profile(s) and filtering posts by keywords: {keywords}"
+    )
+
+    try:
+        for person_input in people:
+            person_input = person_input.strip()
+            if not person_input:
+                continue
+
+            print(f"🔍 Processing person: {person_input}")
+
+            profile_urn = None
+            profile_url = None
+            profile_name = None
+            profile_id = None
+
+            # Check if it's a URL
+            if (
+                "linkedin.com/in/" in person_input
+                or "linkedin.com/pub/" in person_input
+            ):
+                profile_url = person_input
+                # Extract profile identifier from URL
+                if "/in/" in person_input:
+                    profile_id = (
+                        person_input.split("/in/")[-1].split("/")[0].split("?")[0]
+                    )
+                elif "/pub/" in person_input:
+                    profile_id = (
+                        person_input.split("/pub/")[-1].split("/")[0].split("?")[0]
+                    )
+
+                if profile_id:
+                    try:
+                        # Try to get profile by public identifier to get name and URN
+                        # But even if this fails, we can still use profile_id directly for get_profile_posts
+                        if hasattr(linkedin_api, "get_profile"):
+                            try:
+                                profile = linkedin_api.get_profile_posts(
+                                    public_id="ACoAAE8N4cEBVNowKoWg0dXbuaRhHoSJLUGwAzA"
+                                )
+                                print(f"   ✅ Profile: {profile}")
+                                if profile and profile.get("profile_urn"):
+                                    profile_urn = (
+                                        profile.get("profile_urn")
+                                        or profile.get("urn")
+                                        or profile.get("entityUrn")
+                                    )
+                                    profile_name = (
+                                        profile.get("firstName", "")
+                                        + " "
+                                        + profile.get("lastName", "")
+                                    )
+                                    if not profile_name.strip():
+                                        profile_name = profile.get(
+                                            "public_id", profile_id
+                                        )
+                                else:
+                                    # Profile lookup returned empty, but we can still use profile_id
+                                    print(
+                                        f"   ℹ️ Profile lookup returned empty, but will try to get posts using public_id: {profile_id}"
+                                    )
+                                    profile_name = profile_id.replace("-", " ").title()
+                            except Exception as get_profile_error:
+                                print(
+                                    f"   ℹ️ Could not get profile details, but will try to get posts using public_id: {profile_id}"
+                                )
+                                print(
+                                    f"Error getting profile details: {get_profile_error}"
+                                )
+                                profile_name = profile_id.replace("-", " ").title()
+                        elif hasattr(linkedin_api, "get_person"):
+                            try:
+                                profile = linkedin_api.get_person(profile_id)
+                                if profile:
+                                    profile_urn = profile.get("urn") or profile.get(
+                                        "entityUrn"
+                                    )
+                                    profile_name = (
+                                        profile.get("firstName", "")
+                                        + " "
+                                        + profile.get("lastName", "")
+                                    )
+                            except Exception as get_person_error:
+                                print(
+                                    f"   ℹ️ Could not get person details, but will try to get posts using public_id: {profile_id}"
+                                )
+                                profile_name = profile_id.replace("-", " ").title()
+                    except Exception as profile_error:
+                        print(
+                            f"   ℹ️ Error during profile lookup, but will try to get posts using public_id: {profile_id}"
+                        )
+                        profile_name = profile_id.replace("-", " ").title()
+
+            # If not a URL or URL lookup failed, search by name
+            # But only if we don't have a profile_id from URL (keep it even if lookup failed)
+            if not profile_id and not profile_urn:
+                try:
+                    if hasattr(linkedin_api, "get_profile"):
+                        search_results = linkedin_api.get_profile(
+                            urn_id="ACoAAE8N4cEBVNowKoWg0dXbuaRhHoSJLUGwAzA"
+                        )
+                        print(f"   ✅ Search results for get_profile: {search_results}")
+                        if search_results and len(search_results) > 0:
+                            # Take the first result
+                            profile = search_results[0]
+                            profile_urn = (
+                                profile.get("urn")
+                                or profile.get("entityUrn")
+                                or profile.get("publicIdentifier")
+                            )
+                            profile_name = (
+                                profile.get("firstName", "")
+                                + " "
+                                + profile.get("lastName", "")
+                            )
+                            profile_id = profile.get("publicIdentifier") or profile.get(
+                                "username"
+                            )
+                            print(
+                                f"   ✅ Found profile: {profile_name} (URN: {profile_urn})"
+                            )
+                            print(f"   ✅ Profile: {profile}")
+                        else:
+                            print(f"   ⚠️ No profile found for: {person_input}")
+                            continue
+                    else:
+                        print(f"   ⚠️ search_people() method not available")
+                        continue
+                except Exception as search_error:
+                    print(
+                        f"   ⚠️ Error searching for profile '{person_input}': {str(search_error)}"
+                    )
+                    continue
+
+            # Get posts from the profile using search API (alternative to get_profile_posts)
+            if profile_id or profile_name:
+                try:
+                    profile_posts = []
+
+                    # Use search API to find posts from this profile
+                    # Search for posts and filter by author profile URL
+                    print(
+                        f"   🔍 Searching for posts from profile: {profile_name or profile_id}"
+                    )
+
+                    if hasattr(linkedin_api, "search"):
+                        try:
+                            # Build search query - search for posts and filter by author
+                            # We'll search broadly and then filter by author URL
+                            search_query = profile_name or profile_id.replace("-", " ")
+
+                            filters = ["(key:resultType,value:List(CONTENT))"]
+
+                            if days_back and days_back > 0:
+                                seconds_back = days_back * 24 * 60 * 60
+                                filters.append(
+                                    f"(key:timePostedRange,value:List(r{seconds_back}))"
+                                )
+
+                            filters_str = f"List({','.join(filters)})"
+
+                            # Search for posts
+                            search_params = {
+                                "keywords": search_query,
+                                "filters": filters_str,
+                            }
+
+                            print(f"   🔍 Searching with query: {search_query}")
+                            search_results = linkedin_api.search(
+                                search_params, limit=100, offset=0
+                            )
+
+                            if search_results:
+                                print(
+                                    f"   📄 Found {len(search_results)} search results, filtering by author..."
+                                )
+
+                                # Filter results to only include posts from this profile
+                                profile_url_pattern = (
+                                    f"/in/{profile_id}" if profile_id else None
+                                )
+
+                                for result in search_results:
+                                    if not result or not isinstance(result, dict):
+                                        continue
+
+                                    # Check if this post is from the target profile
+                                    author_match = False
+
+                                    # Check actorNavigationContext for author URL
+                                    actor_nav = result.get("actorNavigationContext", {})
+                                    if isinstance(actor_nav, dict):
+                                        author_url = actor_nav.get(
+                                            "url", ""
+                                        ) or actor_nav.get("actorNavigationUrl", "")
+                                        if (
+                                            profile_url_pattern
+                                            and profile_url_pattern in author_url
+                                        ):
+                                            author_match = True
+
+                                    # Also check if profile_id appears in the result
+                                    if not author_match and profile_id:
+                                        result_str = json.dumps(
+                                            result, default=str
+                                        ).lower()
+                                        if profile_id.lower() in result_str:
+                                            author_match = True
+
+                                    # If it matches, add to profile_posts
+                                    if author_match:
+                                        profile_posts.append(result)
+
+                                print(
+                                    f"   ✅ Filtered to {len(profile_posts)} posts from target profile"
+                                )
+                            else:
+                                print(f"   ℹ️ No search results found")
+
+                        except Exception as search_error:
+                            print(f"   ⚠️ Search failed: {str(search_error)}")
+                            import traceback
+
+                            print(f"   Traceback: {traceback.format_exc()}")
+                            profile_posts = []
+                    else:
+                        print(f"   ⚠️ search() method not available")
+                        profile_posts = []
+
+                except Exception as get_posts_error:
+                    print(
+                        f"   ⚠️ Failed to get posts from profile: {str(get_posts_error)}"
+                    )
+                    import traceback
+
+                    print(f"   Traceback: {traceback.format_exc()}")
+                    profile_posts = []
+            else:
+                # No profile_id or profile_name, skip
+                profile_posts = []
+
+            if profile_posts:
+                print(f"   📄 Found {len(profile_posts)} posts from profile")
+                all_raw_results.extend(profile_posts)
+
+                # Process posts and filter by keywords
+                for post in profile_posts:
+                    if not post or not isinstance(post, dict):
+                        continue
+
+                    # Extract post text
+                    post_text = ""
+                    commentary = post.get("commentary", {})
+                    if isinstance(commentary, dict):
+                        text_value = commentary.get("text", "")
+                        if isinstance(text_value, dict):
+                            post_text = text_value.get("text", "")
+                        elif isinstance(text_value, str):
+                            post_text = text_value
+                    elif isinstance(commentary, str):
+                        post_text = commentary
+
+                    if not post_text:
+                        post_text = (
+                            post.get("text", "")
+                            or post.get("summary", "")
+                            or post.get("description", "")
+                            or ""
+                        )
+
+                    post_text_lower = post_text.lower() if post_text else ""
+
+                    # Check if any keyword matches
+                    matched_keywords = []
+                    for keyword in keywords:
+                        keyword_lower = keyword.lower()
+                        if keyword_lower in post_text_lower:
+                            matched_keywords.append(keyword)
+
+                    # Only include posts that match at least one keyword
+                    if not matched_keywords:
+                        continue
+
+                    # Extract post ID
+                    post_id = None
+                    tracking_urn = (
+                        post.get("trackingUrn")
+                        or post.get("urn")
+                        or post.get("entityUrn")
+                        or post.get("activityUrn")
+                    )
+                    if tracking_urn:
+                        if isinstance(tracking_urn, str) and ":" in tracking_urn:
+                            parts = tracking_urn.split(":")
+                            if len(parts) > 0:
+                                post_id = parts[-1]
+
+                    if not post_id:
+                        post_id = post.get("id") or str(post)
+
+                    post_id_str = str(post_id)
+                    if post_id_str in exclude_ids:
+                        continue
+
+                    # Extract post date
+                    post_created_at = (
+                        post.get("createdAt")
+                        or post.get("created")
+                        or post.get("time")
+                        or post.get("publishedAt")
+                        or ""
+                    )
+
+                    # Extract author info
+                    author_name = profile_name or person_input
+                    author_urn = profile_urn or ""
+                    author_profile_url = profile_url or (
+                        f"https://www.linkedin.com/in/{profile_id}"
+                        if profile_id
+                        else ""
+                    )
+
+                    # Extract engagement metrics
+                    likes = post.get(
+                        "numLikes", post.get("likes", post.get("likeCount", 0))
+                    )
+                    comments = post.get(
+                        "numComments",
+                        post.get("comments", post.get("commentCount", 0)),
+                    )
+                    shares = post.get(
+                        "numShares",
+                        post.get("shares", post.get("shareCount", 0)),
+                    )
+
+                    # Extract post URL
+                    post_url = (
+                        post.get("navigationUrl")
+                        or post.get("url")
+                        or post.get("postUrl")
+                        or ""
+                    )
+                    if not post_url and tracking_urn:
+                        if tracking_urn.startswith("urn:li:activity:"):
+                            post_url = (
+                                f"https://www.linkedin.com/feed/update/{tracking_urn}"
+                            )
+                        elif "activity:" in tracking_urn:
+                            activity_id = (
+                                tracking_urn.split(":")[-1]
+                                if ":" in tracking_urn
+                                else tracking_urn
+                            )
+                            post_url = f"https://www.linkedin.com/feed/update/urn:li:activity:{activity_id}"
+
+                    post_data = {
+                        "id": post_id_str,
+                        "urn": tracking_urn or "",
+                        "text": post_text,
+                        "textPreview": post_text[:200] if post_text else "",
+                        "keywords": matched_keywords,
+                        "scrapedAt": datetime.now().isoformat(),
+                        "authorName": author_name,
+                        "authorUrn": author_urn,
+                        "authorProfileUrl": author_profile_url,
+                        "createdAt": post_created_at,
+                        "updatedAt": post.get("updatedAt", post.get("updated", "")),
+                        "likes": likes,
+                        "comments": comments,
+                        "shares": shares,
+                        "url": post_url,
+                        "postType": post.get("type", post.get("template", "standard")),
+                        "visibility": post.get("visibility", post.get("privacy", "")),
+                        "language": post.get("language", ""),
+                    }
+
+                    all_posts.append(post_data)
+            else:
+                print(f"   ℹ️ No posts found from profile")
+
+    except Exception as e:
+        import traceback
+
+        print(f"❌ Error in search_profiles_and_get_posts: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        raise Exception(f"Error searching profiles and getting posts: {str(e)}")
+
+    # Remove duplicates
+    seen_ids = set()
+    unique_posts = []
+    for post in all_posts:
+        if post["id"] not in seen_ids:
+            seen_ids.add(post["id"])
+            unique_posts.append(post)
+
+    unique_posts.sort(key=get_post_date, reverse=True)
+
+    print(
+        f"✅ Profile search completed: {len(unique_posts)} unique posts found from {len(people)} profile(s)"
+    )
+
+    return unique_posts, all_raw_results
+
+
 @app.route("/search_posts", methods=["POST"])
 def search_posts():
     """Search for posts with specific keywords"""
@@ -776,8 +1209,17 @@ def poll_posts():
         )
 
     try:
+        temp = linkedin_api.get_profile(urn_id="7394491841657823233")
+        print(f"   ✅ Temp: {temp}")
+        return jsonify({"success": True, "temp": temp}), 200
+    except Exception as e:
+        print(f"   ⚠️ Error in poll_posts: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    try:
         data = request.json
         keywords = data.get("keywords", [])
+        people = data.get("people", [])
         client_offset = data.get("offset")
         time_range = data.get("timeRange")
 
@@ -819,6 +1261,7 @@ def poll_posts():
         print(f"🕐 Last poll: {last_poll_timestamp}, Request offset: {search_offset}")
         print(f"🚫 Excluding {len(exclude_ids)} already checked/scraped post IDs")
 
+        # Search posts by keywords (existing functionality)
         all_found_posts, raw_search_results = search_posts_by_keywords(
             keywords,
             limit=50,
@@ -826,6 +1269,29 @@ def poll_posts():
             days_back=calculated_days_back,
             exclude_ids=exclude_ids,
         )
+
+        # Also search profiles and get their posts if people list is provided
+        profile_posts = []
+        profile_raw_results = []
+        if people and len(people) > 0:
+            try:
+                print(
+                    f"👥 Checking {len(people)} profile(s) for posts matching keywords"
+                )
+                profile_posts, profile_raw_results = search_profiles_and_get_posts(
+                    people,
+                    keywords,
+                    days_back=calculated_days_back,
+                    exclude_ids=exclude_ids,
+                )
+                print(f"✅ Found {len(profile_posts)} posts from profiles")
+            except Exception as profile_error:
+                print(f"⚠️ Error checking profiles: {str(profile_error)}")
+                # Continue with keyword search results even if profile search fails
+
+        # Combine results
+        all_found_posts.extend(profile_posts)
+        raw_search_results.extend(profile_raw_results)
 
         current_poll_checked_ids = set()
 
@@ -848,7 +1314,7 @@ def poll_posts():
         checked_post_ids.update(current_poll_checked_ids)
 
         print(
-            f"🔍 Found {len(all_found_posts)} total posts, {len(new_posts)} new, {duplicate_count} duplicates skipped"
+            f"🔍 Found {len(all_found_posts)} total posts ({len(profile_posts)} from profiles), {len(new_posts)} new, {duplicate_count} duplicates skipped"
         )
         print(
             f"📊 All checked posts: {len(all_checked_posts)}, Newly scraped: {len(new_posts)}"

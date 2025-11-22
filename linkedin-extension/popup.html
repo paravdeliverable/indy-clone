@@ -231,6 +231,33 @@
           commas
         </small>
 
+        <label for="people"
+          >People to Check (names or profile URLs, one per line or
+          comma-separated):</label
+        >
+        <textarea
+          id="people"
+          placeholder="e.g., John Doe, https://www.linkedin.com/in/johndoe, Jane Smith (press Enter to add)"
+          rows="4"
+          style="
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 10px;
+            font-family: inherit;
+            resize: vertical;
+          "
+        ></textarea>
+        <div id="peopleTags"></div>
+        <small
+          style="color: #666; font-size: 12px; display: block; margin-top: 5px"
+        >
+          💡 Enter names or LinkedIn profile URLs. Posts from these profiles
+          will be checked for keywords.
+        </small>
+
         <label for="pollInterval">Polling Interval (seconds):</label>
         <input
           type="number"
