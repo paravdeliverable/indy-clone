@@ -13,6 +13,8 @@ const totalPostsEl = document.getElementById('totalPosts');
 const pollingStatusEl = document.getElementById('pollingStatus');
 const viewPostsBtn = document.getElementById('viewPostsBtn');
 const clearPostsBtn = document.getElementById('clearPostsBtn');
+const apiTokenInput = document.getElementById('apiToken');
+const saveApiTokenBtn = document.getElementById('saveApiTokenBtn');
 
 let keywords = [];
 
@@ -23,7 +25,8 @@ function loadSavedValues() {
         'savedPollInterval',
         'savedTimeRangeValue',
         'savedTimeRangeUnit',
-        'pollingOffset'
+        'pollingOffset',
+        'apiToken'
     ], (result) => {
         if (result.scrapingKeywords && Array.isArray(result.scrapingKeywords)) {
             keywords = result.scrapingKeywords;
@@ -48,6 +51,10 @@ function loadSavedValues() {
         if (result.savedTimeRangeUnit) {
             timeRangeUnitSelect.value = result.savedTimeRangeUnit;
         }
+
+        if (result.apiToken) {
+            apiTokenInput.value = result.apiToken;
+        }
     });
 }
 
@@ -62,6 +69,18 @@ function saveInputValues() {
 
     chrome.storage.local.set(valuesToSave);
 }
+
+saveApiTokenBtn.addEventListener('click', () => {
+    const token = apiTokenInput.value.trim();
+    if (!token) {
+        showStatus('Please enter an API token', 'error');
+        return;
+    }
+
+    chrome.storage.local.set({ apiToken: token }, () => {
+        showStatus('✅ API token saved successfully', 'success');
+    });
+});
 
 loadSavedValues();
 
@@ -560,8 +579,8 @@ function showStatus(message, type) {
 
 function loadStats() {
     // Show API total scraped count instead of local scraped posts
-    chrome.storage.local.get(['apiTotalScraped'], (result) => {
-        const totalScraped = result.apiTotalScraped || 0;
+    chrome.storage.local.get(['scrapedPostIds'], (result) => {
+        const totalScraped = result.scrapedPostIds.length || 0;
         totalPostsEl.textContent = totalScraped;
     });
 }

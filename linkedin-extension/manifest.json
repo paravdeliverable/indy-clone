@@ -15,7 +15,8 @@
   "host_permissions": [
     "https://www.linkedin.com/*",
     "https://linkedin.com/*",
-    "http://localhost:8000/*"
+    "http://localhost:8000/*",
+    "https://api-work-os.qmc4w5.easypanel.host/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -38,6 +39,6 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://* http://localhost:8000 http://127.0.0.1:8000 http://*"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://* http://localhost:8000 http://127.0.0.1:8000 http://* https://api-work-os.qmc4w5.easypanel.host"
   }
 }

@@ -213,6 +213,24 @@
       </div>
 
       <div class="section">
+        <div class="section-title">🔑 API Configuration</div>
+        <label for="apiToken">API Token:</label>
+        <input
+          type="password"
+          id="apiToken"
+          placeholder="Bearer token for API"
+        />
+        <small
+          style="color: #666; font-size: 12px; display: block; margin-top: 5px"
+        >
+          💡 Token for sending scraped posts to the API endpoint
+        </small>
+        <button id="saveApiTokenBtn" class="secondary" style="margin-top: 10px">
+          Save API Token
+        </button>
+      </div>
+
+      <div class="section">
         <div class="section-title">⚙️ Scraping Configuration</div>
 
         <label for="keywords"

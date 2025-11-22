@@ -1,3 +1,5 @@
+import { API_URL } from './constants.js';
+
 const BACKEND_URL = 'http://localhost:8000';
 
 let pollingInterval = null;
@@ -319,30 +321,54 @@ async function clearPostsFromBackend() {
 async function sendPostsToAPI(posts) {
     try {
         // Format posts according to API structure
-        const formattedPosts = posts.map(post => ({
-            id: post.id || post.urn || '',
-            authorName: post.authorName || '',
-            authorProfileUrl: post.authorProfileUrl || '',
-            authorUrn: post.authorUrn || '',
-            comments: post.comments || 0,
-            likes: post.likes || 0,
-            shares: post.shares || 0,
-            postType: post.postType || post.template || 'standard',
-            language: post.language || '',
-            visibility: post.visibility || '',
-            url: post.url || '',
-            urn: post.urn || post.id || '',
-            createdAt: post.createdAt || post.scrapedAt || new Date().toISOString(),
-            updatedAt: post.updatedAt || post.createdAt || post.scrapedAt || new Date().toISOString(),
-            scrapedAt: post.scrapedAt || new Date().toISOString(),
-            keywords: post.keywords || [],
-            text: post.text || post.textPreview || '',
-            textPreview: post.textPreview || (post.text ? post.text.substring(0, 200) : ''),
-            media: post.media || null
-        }));
+        const formattedPosts = posts.map(post => {
+            // Extract post ID from URN if needed
+            let postId = post.id || '';
+            if (!postId && post.urn) {
+                // Extract ID from URN like "urn:li:activity:7394992774011547649"
+                const urnParts = post.urn.split(':');
+                if (urnParts.length > 0) {
+                    postId = urnParts[urnParts.length - 1];
+                }
+            }
+            if (!postId && post.url) {
+                // Extract ID from URL like "https://www.linkedin.com/feed/update/urn:li:activity:7394992774011547649"
+                const urlMatch = post.url.match(/activity:(\d+)/);
+                if (urlMatch) {
+                    postId = urlMatch[1];
+                }
+            }
+
+            // Format createdAt date
+            let createdAt = post.createdAt || post.scrapedAt || new Date().toISOString();
+            // Ensure ISO format
+            if (createdAt && !createdAt.includes('T')) {
+                createdAt = new Date(createdAt).toISOString();
+            }
+
+            // Format scrapedAt date
+            let scrapedAt = post.scrapedAt || new Date().toISOString();
+            if (scrapedAt && !scrapedAt.includes('T')) {
+                scrapedAt = new Date(scrapedAt).toISOString();
+            }
+
+            return {
+                id: postId,
+                authorName: post.authorName || '',
+                authorProfileUrl: post.authorProfileUrl || '',
+                comments: post.comments || 0,
+                createdAt: createdAt,
+                keywords: post.keywords || [],
+                likes: post.likes || 0,
+                postType: post.postType || post.template || 'CONTENT_A',
+                scrapedAt: scrapedAt,
+                shares: post.shares || 0,
+                text: post.text || post.textPreview || '',
+                url: post.url || ''
+            };
+        });
 
         // API endpoint for sending posts
-        const API_URL = 'https://2590eb45e781.ngrok-free.app/api/v1/linkedin-post';
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
