@@ -6,7 +6,8 @@
   "scripts": {
     "venv": "cd linkedin-extension/backend && python3 -m venv venv",
     "install": "cd linkedin-extension/backend && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt",
-    "start": "cd linkedin-extension/backend && ./venv/bin/python server.py",
+    "copy-lib": "node copy_linkedin_lib.js",
+    "start": "npm run copy-lib && node start_server.js",
     "health": "cd linkedin-extension/backend && ./venv/bin/python -c \"import requests; print(requests.get('http://localhost:8000/health').text)\"",
     "lint": "cd linkedin-extension/backend && ./venv/bin/python -m py_compile server.py"
   }

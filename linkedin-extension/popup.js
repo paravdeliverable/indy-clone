@@ -580,7 +580,7 @@ function showStatus(message, type) {
 function loadStats() {
     // Show API total scraped count instead of local scraped posts
     chrome.storage.local.get(['scrapedPostIds'], (result) => {
-        const totalScraped = result.scrapedPostIds.length || 0;
+        const totalScraped = result.scrapedPostIds?.length || 0;
         totalPostsEl.textContent = totalScraped;
     });
 }
