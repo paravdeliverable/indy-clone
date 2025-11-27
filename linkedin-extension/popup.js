@@ -14,7 +14,6 @@ const pollingStatusEl = document.getElementById('pollingStatus');
 const viewPostsBtn = document.getElementById('viewPostsBtn');
 const clearPostsBtn = document.getElementById('clearPostsBtn');
 const apiTokenInput = document.getElementById('apiToken');
-const saveApiTokenBtn = document.getElementById('saveApiTokenBtn');
 
 let keywords = [];
 
@@ -69,18 +68,6 @@ function saveInputValues() {
 
     chrome.storage.local.set(valuesToSave);
 }
-
-saveApiTokenBtn.addEventListener('click', () => {
-    const token = apiTokenInput.value.trim();
-    if (!token) {
-        showStatus('Please enter an API token', 'error');
-        return;
-    }
-
-    chrome.storage.local.set({ apiToken: token }, () => {
-        showStatus('✅ API token saved successfully', 'success');
-    });
-});
 
 loadSavedValues();
 
