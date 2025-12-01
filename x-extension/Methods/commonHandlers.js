@@ -1,20 +1,24 @@
+import { xSearchScrapeDataEventHandler } from "../xHandlers/xSearchScrapeDataHandlers.js";
 
-const saveData = async (data, removeTab = false) => {
+const saveData = async (message, sender, sendResponse) => {
   try {
-    const tabs = await chrome.tabs.query({});
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      },
+      body: JSON.stringify({ posts: formattedPosts })
+    });
 
-    const existingTab = tabs[0];
-    if (existingTab) {
-      chrome.scripting.executeScript({
-        target: { tabId: existingTab.id },
-        func: (data, removeTab) => {
-          chrome.runtime.sendMessage({ action: "saveData", data, removeTab });
-        },
-        args: [data, removeTab],
-      });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
   } catch (error) {
     console.error("Error in closeWindow:", error);
+  } finally {
+    xSearchScrapeDataEventHandler(message, sender, sendResponse);
   }
 };
 

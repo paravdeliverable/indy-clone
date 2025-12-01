@@ -1,5 +1,6 @@
 import { closeWindowHandler, reloadTabHandler, removeTabHandler, screenStuckHandler, updateTabHandler } from "./commonHandlers.js";
 import { xSearchScrapeDataEventHandler } from "../xHandlers/xSearchScrapeDataHandlers.js";
+import { saveData } from "./commonHandlers.js";
 
 async function runtimeMessageHandler(message, sender, sendResponse) {
   console.log("Received message:", message);
@@ -28,6 +29,10 @@ async function runtimeMessageHandler(message, sender, sendResponse) {
 
     case "screenStuck":
       screenStuckHandler(message, sender, sendResponse);
+      break;
+
+    case "saveData":
+      saveData(message, sender, sendResponse);
       break;
 
   }

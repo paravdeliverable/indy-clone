@@ -147,6 +147,25 @@
         <button type="submit" id="submitBtn">Start Scraping</button>
         <div id="status" class="status"></div>
       </form>
+
+      <hr style="margin: 24px 0; border: none; border-top: 1px solid #e0e0e0" />
+
+      <form id="profilesForm">
+        <div class="form-group">
+          <label for="profiles">Enter Profile Links (one per line):</label>
+          <textarea
+            id="profiles"
+            name="profiles"
+            placeholder="e.g., https://x.com/username1&#10;https://x.com/username2&#10;"
+            required
+          ></textarea>
+          <div class="hint">
+            Enter X profile URLs or usernames (one per line)
+          </div>
+        </div>
+        <button type="submit" id="saveProfilesBtn">Save Profiles</button>
+        <div id="profilesStatus" class="status"></div>
+      </form>
     </div>
     <script type="module" src="popup.js"></script>
   </body>

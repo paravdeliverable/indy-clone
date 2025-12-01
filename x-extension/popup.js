@@ -4,7 +4,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const submitBtn = document.getElementById("submitBtn");
     const statusDiv = document.getElementById("status");
 
-    // Load existing keywords from storage
+    const profilesForm = document.getElementById("profilesForm");
+    const profilesTextarea = document.getElementById("profiles");
+    const saveProfilesBtn = document.getElementById("saveProfilesBtn");
+    const profilesStatusDiv = document.getElementById("profilesStatus");
+
     try {
         const { searchKeywords } = await chrome.storage.local.get("searchKeywords");
         if (searchKeywords && Array.isArray(searchKeywords) && searchKeywords.length > 0) {
@@ -14,7 +18,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Error loading keywords:", error);
     }
 
-    // Show status message
+    try {
+        const { xProfiles } = await chrome.storage.local.get("xProfiles");
+        if (xProfiles && Array.isArray(xProfiles) && xProfiles.length > 0) {
+            const profileUrls = xProfiles.map(p => {
+                if (typeof p === 'string') {
+                    return p;
+                }
+                return p.url || '';
+            }).filter(url => url.length > 0);
+            profilesTextarea.value = profileUrls.join("\n");
+        }
+    } catch (error) {
+        console.error("Error loading profiles:", error);
+    }
+
     const showStatus = (message, type = "info") => {
         statusDiv.textContent = message;
         statusDiv.className = `status ${type}`;
@@ -23,7 +41,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, 5000);
     };
 
-    // Handle form submission
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
@@ -34,7 +51,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        // Parse keywords (support both comma-separated and newline-separated)
         const keywords = keywordsInput
             .split(/[,\n]/)
             .map(k => k.trim())
@@ -49,17 +65,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             submitBtn.disabled = true;
             submitBtn.textContent = "Processing...";
 
-            // Store keywords in chrome.storage.local
             await chrome.storage.local.set({ searchKeywords: keywords });
 
-            // Get the current active tab
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
             if (!tab) {
                 throw new Error("No active tab found");
             }
 
-            // Send message to background script to trigger xSearchScrapeData
             chrome.runtime.sendMessage(
                 {
                     action: "xSearchScrapeData",
@@ -74,7 +87,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     submitBtn.disabled = false;
                     submitBtn.textContent = "Start Scraping";
 
-                    // Close popup after a short delay
                     setTimeout(() => {
                         window.close();
                     }, 1500);
@@ -85,6 +97,69 @@ document.addEventListener("DOMContentLoaded", async () => {
             showStatus(`Error: ${error.message}`, "error");
             submitBtn.disabled = false;
             submitBtn.textContent = "Start Scraping";
+        } finally {
+            await chrome.storage.local.set({ currentScraping: "search" });
+        }
+    });
+
+    const showProfilesStatus = (message, type = "info") => {
+        profilesStatusDiv.textContent = message;
+        profilesStatusDiv.className = `status ${type}`;
+        setTimeout(() => {
+            profilesStatusDiv.className = "status";
+        }, 5000);
+    };
+
+    profilesForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const profilesInput = profilesTextarea.value.trim();
+
+        if (!profilesInput) {
+            showProfilesStatus("Please enter at least one profile link", "error");
+            return;
+        }
+
+        const profiles = profilesInput
+            .split(/\n/)
+            .map(p => p.trim())
+            .filter(p => p.length > 0)
+            .map(p => {
+                let url = '';
+                if (p.startsWith("http://") || p.startsWith("https://")) {
+                    url = p;
+                } else if (p.startsWith("@")) {
+                    url = `https://x.com/${p.substring(1)}`;
+                } else if (p.startsWith("x.com/") || p.startsWith("twitter.com/")) {
+                    url = `https://${p}`;
+                } else {
+                    url = `https://x.com/${p}`;
+                }
+                return {
+                    url: url,
+                    isScrapped: false
+                };
+            });
+
+        if (profiles.length === 0) {
+            showProfilesStatus("Please enter valid profile links", "error");
+            return;
+        }
+
+        try {
+            saveProfilesBtn.disabled = true;
+            saveProfilesBtn.textContent = "Saving...";
+
+            await chrome.storage.local.set({ xProfiles: profiles });
+
+            showProfilesStatus(`Saved ${profiles.length} profile(s)!`, "success");
+            saveProfilesBtn.disabled = false;
+            saveProfilesBtn.textContent = "Save Profiles";
+        } catch (error) {
+            console.error("Error saving profiles:", error);
+            showProfilesStatus(`Error: ${error.message}`, "error");
+            saveProfilesBtn.disabled = false;
+            saveProfilesBtn.textContent = "Save Profiles";
         }
     });
 });

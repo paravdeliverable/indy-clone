@@ -10,19 +10,11 @@
     "activeTab",
     "windows",
     "notifications",
-    "devtools",
-    "startup",
     "webRequest",
-    "webRequestBlocking",
     "webRequestAuthProvider"
   ],
   "incognito": "spanning",
-  "host_permissions": [
-    "<all_urls>",
-    "devtools://devtools/*",
-    "http://*/*",
-    "https://*/*"
-  ],
+  "host_permissions": ["<all_urls>", "http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
