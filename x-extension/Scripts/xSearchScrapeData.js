@@ -61,11 +61,14 @@ const handleXSearchScrapeData = async () => {
                 const datetime = timeElement?.getAttribute('datetime') || '';
                 const relativeTime = timeElement?.textContent?.trim() || '';
 
+                // Check if the tweet is pinned
+                const isPinned = tweet.textContent?.toLowerCase().includes('pinned') || false;
+
                 let createdAt = '';
                 if (datetime) {
                     createdAt = new Date(datetime).toISOString();
                 }
-
+                console.log("createdAt", createdAt);
                 const postLink = tweet.querySelector(`a[href*="/status/"]`);
                 const postUrl = postLink ? `https://x.com${postLink.getAttribute('href')}` : '';
                 const postIdMatch = postUrl.match(/\/status\/(\d+)/);
@@ -145,6 +148,7 @@ const handleXSearchScrapeData = async () => {
                     createdAt: createdAt,
                     entityUrn: entityUrn,
                     id: id,
+                    isPinned: isPinned,
                     keywords: keywords,
                     language: language,
                     likes: likes,
@@ -176,8 +180,8 @@ const handleXSearchScrapeData = async () => {
 
     const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
-    // Toggle: true = check last one minute, false = check this week
-    const checkLastOneMinute = true;
+    // Toggle: true = check last one minute, false = check last 7 days
+    const checkLastOneMinute = false;
 
     // Helper function to check if a date is from the last one minute
     const isFromLastOneMinute = (dateString) => {
@@ -188,25 +192,18 @@ const handleXSearchScrapeData = async () => {
         return postDate >= oneMinuteAgo;
     };
 
-    // Helper function to check if a date is from this week
-    const isFromThisWeek = (dateString) => {
+    // Helper function to check if a date is from the last 7 days
+    const isFromLast7Days = (dateString) => {
         if (!dateString) return false;
         const postDate = new Date(dateString);
         const now = new Date();
-
-        // Get start of this week (Monday at 00:00:00)
-        const startOfWeek = new Date(now);
-        const dayOfWeek = now.getDay();
-        const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust to Monday
-        startOfWeek.setDate(diff);
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        return postDate >= startOfWeek;
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return postDate >= sevenDaysAgo;
     };
 
     // Function to check if post is within the selected time range
     const isWithinTimeRange = (dateString) => {
-        return checkLastOneMinute ? isFromLastOneMinute(dateString) : isFromThisWeek(dateString);
+        return checkLastOneMinute ? isFromLastOneMinute(dateString) : isFromLast7Days(dateString);
     };
 
     await wait(Math.random() * 3000 + 1000);
@@ -228,7 +225,8 @@ const handleXSearchScrapeData = async () => {
         let hasValidPost = false;
         posts.forEach(p => {
             if (!seenIds.has(p.id) && p.id) {
-                const isWithinRange = isWithinTimeRange(p.createdAt);
+                // If post is pinned, consider it as valid without checking date
+                const isWithinRange = p.isPinned || isWithinTimeRange(p.createdAt);
                 if (isWithinRange) {
                     seenIds.add(p.id);
                     allPosts.push(p);

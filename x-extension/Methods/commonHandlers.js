@@ -18,7 +18,10 @@ const saveData = async (message, sender, sendResponse) => {
   } catch (error) {
     console.error("Error in closeWindow:", error);
   } finally {
-    xSearchScrapeDataEventHandler(message, sender, sendResponse);
+    for (let elapsed = 0; elapsed < 120; elapsed += 2) {
+      await new Promise(res => setTimeout(res, 2000));
+    }
+    await xSearchScrapeDataEventHandler(message, sender, sendResponse);
   }
 };
 
