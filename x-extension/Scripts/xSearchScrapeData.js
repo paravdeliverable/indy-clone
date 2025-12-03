@@ -180,63 +180,86 @@ const handleXSearchScrapeData = async () => {
 
     const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
-    // Toggle: true = check last one minute, false = check last 7 days
-    const checkLastOneMinute = false;
+    // Get time range from storage
+    const { timeRange } = await chrome.storage.local.get("timeRange");
+    let timeRangeDate = null;
 
-    // Helper function to check if a date is from the last one minute
-    const isFromLastOneMinute = (dateString) => {
-        if (!dateString) return false;
-        const postDate = new Date(dateString);
-        const now = new Date();
-        const oneMinuteAgo = new Date(now.getTime() - 1 * 60 * 1000);
-        return postDate >= oneMinuteAgo;
-    };
-
-    // Helper function to check if a date is from the last 7 days
-    const isFromLast7Days = (dateString) => {
-        if (!dateString) return false;
-        const postDate = new Date(dateString);
-        const now = new Date();
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return postDate >= sevenDaysAgo;
-    };
+    if (timeRange) {
+        timeRangeDate = new Date(timeRange);
+    } else {
+        // Default to 7 days ago if not configured
+        timeRangeDate = new Date();
+        timeRangeDate.setDate(timeRangeDate.getDate() - 7);
+    }
 
     // Function to check if post is within the selected time range
     const isWithinTimeRange = (dateString) => {
-        return checkLastOneMinute ? isFromLastOneMinute(dateString) : isFromLast7Days(dateString);
+        if (!dateString) return false;
+        if (!timeRangeDate) return true; // If no time range set, include all posts
+
+        const postDate = new Date(dateString);
+        // Check if post date is after or equal to the configured time range date
+        return postDate >= timeRangeDate;
     };
 
     await wait(Math.random() * 3000 + 1000);
 
     const seenIds = new Set([]);
 
-    const { xPosts } = await chrome.storage.local.get("xPosts");
-
-    let allPosts = []
-    if (xPosts && Array.isArray(xPosts)) {
-        allPosts = xPosts;
+    // Initialize seenIds from existing posts
+    const { xPosts: existingPosts } = await chrome.storage.local.get("xPosts");
+    if (existingPosts && Array.isArray(existingPosts)) {
+        existingPosts.forEach(post => {
+            if (post.id) {
+                seenIds.add(post.id);
+            }
+        });
     }
 
+    // Helper function to save a new post immediately to storage
+    const savePostImmediately = async (newPost) => {
+        const { xPosts: currentPosts } = await chrome.storage.local.get("xPosts");
+        let allPosts = currentPosts && Array.isArray(currentPosts) ? currentPosts : [];
+
+        // Add new post
+        allPosts.push(newPost);
+
+        // Deduplicate by id
+        allPosts = allPosts.filter(
+            (post, idx, arr) =>
+                post.id &&
+                arr.findIndex(p => p.id === post.id) === idx
+        );
+
+        // Save to storage immediately
+        await chrome.storage.local.set({ xPosts: allPosts });
+
+        return allPosts;
+    };
+
     let foundOldPost = false;
+    let totalNewPosts = 0;
 
     while (!foundOldPost) {
         let posts = await parseXPostsFromHTML(null, seenIds);
 
         let hasValidPost = false;
-        posts.forEach(p => {
+        for (const p of posts) {
             if (!seenIds.has(p.id) && p.id) {
                 // If post is pinned, consider it as valid without checking date
                 const isWithinRange = p.isPinned || isWithinTimeRange(p.createdAt);
                 if (isWithinRange) {
                     seenIds.add(p.id);
-                    allPosts.push(p);
+                    // Save immediately to storage
+                    await savePostImmediately(p);
+                    totalNewPosts++;
                     hasValidPost = true;
                 } else {
                     // Found a post outside the time range
                     foundOldPost = true;
                 }
             }
-        });
+        }
 
         // If no posts within time range found in this batch, stop
         if (!hasValidPost && posts.length > 0) {
@@ -249,13 +272,9 @@ const handleXSearchScrapeData = async () => {
         await wait(2000 + Math.random() * 2000);
     }
 
-    allPosts = allPosts.filter(
-        (post, idx, arr) =>
-            post.id &&
-            arr.findIndex(p => p.id === post.id) === idx
-    );
-
-    chrome.storage.local.set({ xPosts: allPosts });
+    // Get final posts for the saveData message
+    const { xPosts: finalPosts } = await chrome.storage.local.get("xPosts");
+    const allPosts = finalPosts && Array.isArray(finalPosts) ? finalPosts : [];
 
     chrome.runtime.sendMessage({ action: "saveData", data: allPosts });
     await chrome.storage.local.set({ currentScraping: "profile" });

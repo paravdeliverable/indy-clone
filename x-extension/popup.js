@@ -18,6 +18,45 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Error loading keywords:", error);
     }
 
+    const timeRangeInput = document.getElementById("timeRange");
+
+    // Set max to current date/time to prevent selecting future dates
+    const now = new Date();
+    const maxYear = now.getFullYear();
+    const maxMonth = String(now.getMonth() + 1).padStart(2, '0');
+    const maxDay = String(now.getDate()).padStart(2, '0');
+    const maxHours = String(now.getHours()).padStart(2, '0');
+    const maxMinutes = String(now.getMinutes()).padStart(2, '0');
+    timeRangeInput.max = `${maxYear}-${maxMonth}-${maxDay}T${maxHours}:${maxMinutes}`;
+
+    try {
+        const { timeRange } = await chrome.storage.local.get("timeRange");
+        if (timeRange) {
+            // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:mm)
+            const date = new Date(timeRange);
+            // Ensure the saved date is not in the future
+            const savedDate = date > now ? now : date;
+            const year = savedDate.getFullYear();
+            const month = String(savedDate.getMonth() + 1).padStart(2, '0');
+            const day = String(savedDate.getDate()).padStart(2, '0');
+            const hours = String(savedDate.getHours()).padStart(2, '0');
+            const minutes = String(savedDate.getMinutes()).padStart(2, '0');
+            timeRangeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        } else {
+            // Default to 7 days ago
+            const defaultDate = new Date();
+            defaultDate.setDate(defaultDate.getDate() - 7);
+            const year = defaultDate.getFullYear();
+            const month = String(defaultDate.getMonth() + 1).padStart(2, '0');
+            const day = String(defaultDate.getDate()).padStart(2, '0');
+            const hours = String(defaultDate.getHours()).padStart(2, '0');
+            const minutes = String(defaultDate.getMinutes()).padStart(2, '0');
+            timeRangeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+    } catch (error) {
+        console.error("Error loading time range:", error);
+    }
+
     try {
         const { xProfiles } = await chrome.storage.local.get("xProfiles");
         if (xProfiles && Array.isArray(xProfiles) && xProfiles.length > 0) {
@@ -64,6 +103,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             submitBtn.disabled = true;
             submitBtn.textContent = "Processing...";
+
+            // Save time range configuration
+            const timeRangeValue = timeRangeInput.value;
+            if (timeRangeValue) {
+                const timeRangeDate = new Date(timeRangeValue);
+                const now = new Date();
+
+                // Ensure the selected date is not in the future
+                if (timeRangeDate > now) {
+                    showStatus("Selected date cannot be in the future", "error");
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Start Scraping";
+                    return;
+                }
+
+                await chrome.storage.local.set({ timeRange: timeRangeDate.toISOString() });
+            }
 
             await chrome.storage.local.set({ searchKeywords: keywords });
 
